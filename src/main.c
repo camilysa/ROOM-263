@@ -12,76 +12,73 @@
 #include <time.h>
 #include <unistd.h>
 
-#define TAM_TEX_MAXIMO 400
-#define time_sleep sleep(0)
-
 void imprimir_menu();
 void menu_principal(PERSONAGEM **novo_personagem);
-void ranking();
 PERSONAGEM *criarPersonagem();
 PERSONAGEM *novo_personagem;
+
+int auto_resolve(int posicao) {
+    return (posicao == 1  || posicao == 5  || posicao == 7  ||
+            posicao == 9  || posicao == 10 || posicao == 11 ||
+            posicao == 13 || posicao == 14 ||
+            posicao == 16 || posicao == 17 || posicao == 18 ||
+            posicao == 19 || posicao == 20 || posicao == 21 ||
+            posicao == 22);
+}
 
 int main(){
     int rodando = 1;
     menu_principal(&novo_personagem);
 
-//Looping do jogo
-while (rodando) {
-    char comando;
-    limpar_tela();
-    atual(novo_personagem->posicao, novo_personagem);
+    while (rodando) {
+        char comando;
+        limpar_tela();
+        atual(novo_personagem->posicao, novo_personagem);
 
-    int posicao = novo_personagem->posicao;
-    if (posicao == 1  || posicao == 5  || posicao == 7  ||
-        posicao == 9  || posicao == 10 || posicao == 11 ||
-        posicao == 13 || posicao == 14 ||
-        posicao == 16 || posicao == 17 || posicao == 18 ||
-        posicao == 19 || posicao == 20 || posicao == 21 ||
-        posicao == 22) {
-        pausar();
-        fazer_escolha(novo_personagem, ' ');
-        continue;
+        if (auto_resolve(novo_personagem->posicao)) {
+            pausar();
+            fazer_escolha(novo_personagem, ' ');
+            continue;
+        }
+
+        imprimir_menu();
+        scanf(" %c", &comando);
+
+        if (comando >= '1' && comando <= '4')
+            comando = 'A' + (comando - '1');
+
+        switch (toupper(comando)) {
+            case 'E':
+                printar_inventario(novo_personagem);
+                pausar();
+                break;
+            case 'S':
+                status_personagem(*novo_personagem);
+                pausar();
+                break;
+            case 'A':
+            case 'B':
+            case 'C':
+            case 'D':
+                fazer_escolha(novo_personagem, toupper(comando));
+                limpar_tela();
+                break;
+            case 'P':
+                save(novo_personagem);
+                pausar();
+                break;
+            case 'I':
+                menu_principal(&novo_personagem);
+                break;
+            case 'Q':
+                rodando = 0;
+                break;
+            default:
+                printf("Use A/B/C/D ou 1/2/3/4 para escolher.\n");
+                pausar();
+                break;
+        }
     }
-
-    imprimir_menu();
-    scanf(" %c", &comando);
-
-    // Aceita tanto letras (A/B/C/D) quanto numeros (1/2/3/4)
-    if (comando >= '1' && comando <= '4')
-        comando = 'A' + (comando - '1');
-
-    switch (toupper(comando)) {
-        case 'E':
-            printar_inventario(novo_personagem);
-            pausar();
-            break;
-        case 'S':
-            status_personagem(*novo_personagem);
-            pausar();
-            break;
-        case 'A':
-        case 'B':
-        case 'C':
-        case 'D':
-            fazer_escolha(novo_personagem, toupper(comando));
-            limpar_tela();
-            break;
-        case 'Q':
-            rodando = 0;
-            break;
-        case 'P':
-            save(novo_personagem);
-            pausar();
-            break;
-        case 'I':
-            menu_principal(&novo_personagem);
-            break;
-        default:
-            printf("Opcao invalida. Use A/B/C/D ou 1/2/3/4 para escolhas.\n");
-            pausar();
-            break;
-    }
-}
 
     free(novo_personagem);
     return 0;
