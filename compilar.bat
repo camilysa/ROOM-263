@@ -1,5 +1,8 @@
 @echo off
-rem Script de compilação e execução do jogo em C
+rem Script de compilacao e execucao do jogo em C
+
+rem Forca o diretorio de trabalho para a pasta onde este .bat esta salvo
+cd /d "%~dp0"
 
 gcc -o ./bin/Game.exe src\main.c src\combate.c src\item.c src\andamento.c src\somefunctions.c -Iinclude -lm
 

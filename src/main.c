@@ -32,8 +32,12 @@ while (rodando) {
     atual(novo_personagem->posicao, novo_personagem);
 
     int posicao = novo_personagem->posicao;
-    if (posicao == 9 || posicao == 10 || posicao == 11 ||
-        posicao == 13 || posicao == 14) {
+    if (posicao == 1  || posicao == 5  || posicao == 7  ||
+        posicao == 9  || posicao == 10 || posicao == 11 ||
+        posicao == 13 || posicao == 14 ||
+        posicao == 16 || posicao == 17 || posicao == 18 ||
+        posicao == 19 || posicao == 20 || posicao == 21 ||
+        posicao == 22) {
         pausar();
         fazer_escolha(novo_personagem, ' ');
         continue;
@@ -41,6 +45,10 @@ while (rodando) {
 
     imprimir_menu();
     scanf(" %c", &comando);
+
+    // Aceita tanto letras (A/B/C/D) quanto numeros (1/2/3/4)
+    if (comando >= '1' && comando <= '4')
+        comando = 'A' + (comando - '1');
 
     switch (toupper(comando)) {
         case 'E':
@@ -50,12 +58,6 @@ while (rodando) {
         case 'S':
             status_personagem(*novo_personagem);
             pausar();
-            break;
-        case 'M':
-            printf("ESCOLHA:\n");
-            scanf(" %c", &comando);
-            fazer_escolha(novo_personagem, toupper(comando));
-            limpar_tela();
             break;
         case 'A':
         case 'B':
@@ -75,7 +77,8 @@ while (rodando) {
             menu_principal(&novo_personagem);
             break;
         default:
-            printf("Comando invalido\n");
+            printf("Opcao invalida. Use A/B/C/D ou 1/2/3/4 para escolhas.\n");
+            pausar();
             break;
     }
 }
@@ -109,7 +112,6 @@ void menu_principal(PERSONAGEM **novo_personagem){
                 printf("\n  Parece simples, nao acha?");
                 pausar();
                 *novo_personagem = criarPersonagem();
-                printf("Voce pega a chave do apartamento 263 e entra.\nO cheiro de madeira velha... e algo mais. Algo que voce nao consegue identificar.");
                 pausar();
                 rodando = 0;
                 break;
@@ -201,5 +203,5 @@ PERSONAGEM *criarPersonagem(){
 }
 
 void imprimir_menu(){
-    printf("%10s %10s %10s %10s %10s %10s \n", "[M] Mover", "[E] Inventario", "[S] Status", "[P] Salvar", "[I] Menu", "[Q] Sair");
+    printf("\n[A/B/C/D ou 1/2/3/4] Escolha  [E] Inventario  [S] Status  [P] Salvar  [I] Menu  [Q] Sair\n> ");
 }

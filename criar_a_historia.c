@@ -3,7 +3,7 @@
 #include <string.h>
 
 #define TAM_TEX_MAXIMO 4000
-#define NUMERO_DE_PAGINAS 22
+#define NUMERO_DE_PAGINAS 27
 
 int main() {
     FILE *gravar;

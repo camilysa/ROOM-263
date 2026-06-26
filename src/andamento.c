@@ -1,10 +1,68 @@
 #include "andamento.h"
-
-#define TAM_TEX_MAXIMO 4000
+#include <stdint.h>
 
 void tela_final(PERSONAGEM *personagem, int tipo_final);
+void mostrar_pagina(int pagina);
 
-//vê se o personagem já tem o item ou não
+// Le e imprime a secao N do historia.dat (indexado por linha em branco)
+void mostrar_pagina(int pagina) {
+    FILE *fp = fopen("../historia.dat", "rb");
+    if (fp == NULL) {
+        printf("Nao foi possivel abrir o arquivo historia.dat!\n");
+        return;
+    }
+
+    int32_t num_secoes;
+    if (fread(&num_secoes, sizeof(int32_t), 1, fp) != 1) {
+        printf("Arquivo historia.dat corrompido!\n");
+        fclose(fp);
+        return;
+    }
+
+    if (pagina < 1 || pagina > num_secoes) {
+        printf("Secao %d nao encontrada (total: %d)!\n", pagina, num_secoes);
+        fclose(fp);
+        return;
+    }
+
+    // Cada entrada no indice: offset (4 bytes) + length (4 bytes)
+    int32_t offset, length;
+    long idx_pos = sizeof(int32_t) + (long)(pagina - 1) * 2 * sizeof(int32_t);
+    if (fseek(fp, idx_pos, SEEK_SET) != 0) {
+        printf("Erro ao posicionar no indice!\n");
+        fclose(fp);
+        return;
+    }
+    fread(&offset, sizeof(int32_t), 1, fp);
+    fread(&length, sizeof(int32_t), 1, fp);
+
+    // Area de dados começa apos o indice completo
+    long data_start = sizeof(int32_t) + (long)num_secoes * 2 * sizeof(int32_t);
+    if (fseek(fp, data_start + offset, SEEK_SET) != 0) {
+        printf("Erro ao posicionar nos dados!\n");
+        fclose(fp);
+        return;
+    }
+
+    char *texto = (char *)malloc(length + 1);
+    if (texto == NULL) {
+        printf("Memoria insuficiente!\n");
+        fclose(fp);
+        return;
+    }
+    if (fread(texto, 1, length, fp) != (size_t)length) {
+        printf("Erro ao ler secao %d!\n", pagina);
+        free(texto);
+        fclose(fp);
+        return;
+    }
+    texto[length] = '\0';
+    printf("%s\n", texto);
+    free(texto);
+    fclose(fp);
+}
+
+// ve se o personagem ja tem o item ou nao
 int ja_tem(PERSONAGEM *personagem, char *nome_item) {
     for (int i = 0; i < personagem->qnt_itens; i++) {
         if (strcmp(personagem->item[i].nome, nome_item) == 0) {
@@ -15,7 +73,7 @@ int ja_tem(PERSONAGEM *personagem, char *nome_item) {
     return 1;
 }
 
-//salva o jogo
+// salva o jogo
 void save(PERSONAGEM *personagem) {
     FILE *fp = fopen("../saves.dat", "wb");
     if (fp == NULL) {
@@ -29,7 +87,7 @@ void save(PERSONAGEM *personagem) {
     fclose(fp);
 }
 
-//carrega o progresso do jogo
+// carrega o progresso do jogo
 void load(PERSONAGEM **personagem) {
     FILE *fp = fopen("../saves.dat", "rb");
     if (fp == NULL) {
@@ -54,198 +112,172 @@ void load(PERSONAGEM **personagem) {
     fclose(fp);
 }
 
+/*
+ * Secoes do historia.dat (separadas por linha em branco no jogo_texto.txt):
+ *   1-3   : Introducao (antes da NOITE 1)
+ *   5-9   : NOITE 1
+ *   11-14 : NOITE 2 (dia + padaria + gravador + escolha)
+ *   16,18 : Resultados da escolha do gravador (NOITE 2)
+ *   20-21 : NOITE 3 + escolha (barulho cozinha)
+ *   23    : OPCAO 1 - Ignorar barulho
+ *   24    : Manha apos ignorar (xicara)
+ *   26-28 : OPCAO 2 - Ir ate cozinha + escolha do gravador
+ *   30    : OPCAO 2.1 - Usar gravador na cozinha
+ *   32    : OPCAO 2.2 - Nao usar gravador
+ *   34-36 : NOITE 4 (piso + escolha)
+ *   38    : OPCAO 1 - Evitar o piso
+ *   40-42 : OPCAO 2 - Investigar piso + bilhete + aftermath
+ *   44-49 : NOITE 5 (sequencia completa + escolha)
+ *   51    : OPCAO 1 - Canivete
+ *   53    : OPCAO 2 - Correr ate a sala
+ *   55    : OPCAO 3 - Banheiro
+ *   57-61 : FASE 2 (gravador + entidade + escolha)
+ *   63-64 : OPCAO 1 - Ouvir fita (partes 1 e 2)
+ *   66    : OPCAO 2 - Desligar gravador
+ *   68-70 : FASE 3 - Cacada + ataque
+ *   72    : Se voce acerta
+ *   74    : Se voce erra
+ *   76-79 : FASE FINAL (setup)
+ *   81    : Escolha final (opcoes)
+ *   83-85 : OPCAO 1 - Destruir televisao
+ *   87-89 : OPCAO 2 - Canivete (sucesso/falha)
+ *   91-93 : OPCAO 3 - Gravador (Elena)
+ *   95-98 : OPCAO 4 - Fugir (sucesso/falha)
+ *   100-101: NOITE 6
+ *   103   : FIM DE JOGO
+ *   105   : FINAL 0 - Heranca pro Estado
+ *   107   : FINAL 1 - Nao foi forte o suficiente
+ *   109   : FINAL 2 - Voce venceu
+ */
+
 void atual(int pagina, PERSONAGEM *personagem) {
     switch (pagina) {
         case 1:
-            printf("27 de maio de 2003.\n");
-            printf("Voce entra no apartamento 263.\n");
-            printf("Nao era o que voce esperaria de um milionario.\n");
-            printf("Cheira a madeira velha... e algo mais.\n");
-            printf("Algo que voce nao consegue identificar.\n");
-            printf("\nO que voce faz?\n");
-            printf("|A - Explorar o apartamento\n");
-            printf("|B - Ir logo dormir\n");
+            // NOITE 1 - chegada e primeira noite (auto-avanca)
+            mostrar_pagina(5);
+            mostrar_pagina(6);
+            mostrar_pagina(7);
+            mostrar_pagina(8);
+            mostrar_pagina(9);
             break;
         case 2:
-            printf("29 de maio de 2003.\n");
-            printf("Segunda noite. Nada de anormal.\n");
-            printf("Talvez esse lugar nao seja tao estranho assim...\n");
-            printf("\n|A - Avancar para a proxima noite\n");
+            // NOITE 2 - dia, padaria, gravador se move + opcoes visiveis ao final
+            mostrar_pagina(11);
+            mostrar_pagina(12);
+            mostrar_pagina(13);
+            mostrar_pagina(14); // contem o texto "A - Deixar na sala / B - Pegar o gravador"
             break;
         case 3:
-            printf("30 de maio de 2003 - 3:26\n");
-            printf("Tem um barulho vindo da cozinha.\n");
-            printf("E impossivel dormir assim.\n");
-            printf("\nO que voce vai fazer?\n");
-            printf("|A - Ignorar o barulho e tentar voltar a dormir [-5 coragem | +10 resistencia]\n");
-            printf("|B - Ir ate a cozinha investigar [+10 coragem]\n");
+            // NOITE 3 - barulho na cozinha + escolha
+            mostrar_pagina(20);
+            mostrar_pagina(21);
             break;
         case 4:
-            printf("Voce chega na cozinha.\n");
-            printf("Nao encontra nada...\n");
-            printf("Tem certeza que ouviu alguma coisa?\n");
-            printf("...\n");
-            printf("\nDeseja usar o gravador antes de sair?\n");
-            printf("|A - Sim [+5 percepcao | -10 sanidade]\n");
-            printf("|B - Nao\n");
+            // Indo ate a cozinha + escolha do gravador
+            mostrar_pagina(26);
+            mostrar_pagina(27);
+            mostrar_pagina(28);
             break;
         case 5:
-            printf("REBOBINANDO... <<\n");
-            printf("...\n");
-            printf("Uma voz surge da fita:\n");
-            printf("\"Ela sabe que voce esta aqui\"\n");
-            printf("\n|A - Voltar para o quarto\n");
+            // Resultado de usar o gravador na cozinha
+            mostrar_pagina(30);
             break;
         case 6:
-            printf("31 de maio de 2003.\n");
-            printf("Voce tropeca no piso. NO PISO?\n");
-            printf("Uma das ripas de madeira nao esta bem encaixada.\n");
-            printf("Parece um esconderijo...\n");
-            printf("\nO que voce faz?\n");
-            printf("|A - Ignorar [-5 coragem | +10 resistencia]\n");
-            printf("|B - Examinar o piso [-20 sanidade | +5 coragem]\n");
+            // NOITE 4 - piso solto + escolha
+            mostrar_pagina(34);
+            mostrar_pagina(35);
+            mostrar_pagina(36);
             break;
         case 7:
-            printf("Voce remove o piso falso e encontra uma caixa preta.\n");
-            printf("Dentro: uma folha.\n\n");
-            printf("\"Eu nao vou conseguir fugir daqui,\n");
-            printf(" Ela nunca vai deixar eu sair...\n");
-            printf(" So voce pode quebrar esse ciclo.\n");
-            printf(" Fuja desse lugar.\"\n");
-            printf("\n|A - Guardar o bilhete e continuar\n");
+            // Investigacao completa do piso (auto-avanca apos case 6 escolha B)
+            mostrar_pagina(40);
+            mostrar_pagina(41);
+            mostrar_pagina(42);
             break;
         case 8:
-            printf("1 de junho de 2003 - 3:33\n");
-            printf("Voce acorda sem ar.\n");
-            printf("As paredes parecem longas demais.\n");
-            printf("E entao voce ve ela.\n");
-            printf("Parada no fim do corredor.\n");
-            printf("Alta. Magra. Imóvel.\n");
-            printf("O sorriso grande demais para um ser humano.\n");
-            printf("\nO que voce faz?\n");
-            printf("|A - Pegar o canivete no criado-mudo\n");
-            printf("|B - Correr ate a sala [+5 coragem | -10 sanidade]\n");
-            printf("|C - Se esconder no banheiro [+10 resistencia | -10 coragem]\n");
+            // NOITE 5 - acordar sem ar, entidade aparece
+            mostrar_pagina(44);
+            mostrar_pagina(45);
+            mostrar_pagina(46);
+            mostrar_pagina(47);
+            mostrar_pagina(48);
+            mostrar_pagina(49);
             break;
         case 9:
-            printf("A televisao explode.\n");
-            printf("Os cacos voam na sua direcao.\n");
+            // FASE 3 - ataque com canivete (resultado automatico)
+            mostrar_pagina(68);
+            mostrar_pagina(69);
+            mostrar_pagina(70);
             break;
         case 10:
-            printf("Voce atravessa o corredor.\n");
-            printf("As luzes piscam violentamente.\n");
-            printf("Cada vez que escurece ela aparece mais perto.\n");
-            printf("\"Voce deveria ter ficado no quarto.\"\n");
+            // Resultado de correr ate a sala
+            mostrar_pagina(53);
             break;
         case 11:
-            printf("Voce bate a porta do banheiro.\n");
-            printf("Silencio.\n");
-            printf("...\n");
-            printf("TOC. TOC. TOC.\n");
-            printf("\"Voce realmente acha que portas funcionam aqui?\"\n");
-            printf("A macaneta comeca a girar sozinha.\n");
+            // Resultado de se esconder no banheiro
+            mostrar_pagina(55);
             break;
         case 12:
-            printf("As luzes acabam completamente.\n");
-            printf("O gravador no chao comeca a funcionar sozinho.\n");
-            printf("CLICK. REBOBINANDO... <<\n");
-            printf("A voz do seu tio surge na fita:\n");
-            printf("\"Nao escuta ela.\"\n");
-            printf("\"Ela quer trocar de lugar com voce.\"\n");
-            printf("\nO que voce faz?\n");
-            printf("|A - Ouvir a fita ate o final [+15 percepcao | -10 sanidade]\n");
-            printf("|B - Desligar o gravador [-5 percepcao]\n");
+            // FASE 2 - gravador liga, voz do tio, escolha da fita
+            mostrar_pagina(57);
+            mostrar_pagina(58);
+            mostrar_pagina(59);
+            mostrar_pagina(60);
+            mostrar_pagina(61);
             break;
         case 13:
-            printf("\"Ela nao suporta silencio...\"\n");
-            printf("A narradora grita: PARA.\n");
-            printf("As lampadas do apartamento explodem ao mesmo tempo.\n");
+            // Aftermath de ouvir a fita ate o fim
+            mostrar_pagina(64);
             break;
         case 14:
-            printf("Silencio.\n");
-            printf("...\n");
-            printf("\"Obrigada.\"\n");
-            printf("A voz soa gentil demais.\n");
-            printf("\"Eu sabia que voce me entenderia.\"\n");
+            // Transicao para FASE FINAL apos desligar gravador
+            mostrar_pagina(68);
             break;
         case 15:
-            printf("Ela comeca a aparecer fisicamente.\n");
-            printf("Nao caminhando. Se arrastando pelas paredes.\n");
-            printf("Eu preciso sobreviver.\n");
-            printf("\nO que voce faz?\n");
-            printf("|A - Destruir a televisao da sala\n");
-            printf("|B - Enfrentar ela com o canivete\n");
-            printf("|C - Usar o gravador\n");
-            printf("|D - Fugir do apartamento\n");
+            // FASE FINAL - entidade se revela, escolha final
+            mostrar_pagina(76);
+            mostrar_pagina(77);
+            mostrar_pagina(78);
+            mostrar_pagina(79);
+            mostrar_pagina(81);
             break;
         case 16:
-            printf("Voce pega a televisao.\n");
-            printf("As imagens na tela mudam rapidamente.\n");
-            printf("\"SE VOCE QUEBRAR ISSO...\"\n");
-            printf("Voce fecha os olhos e joga a televisao no chao.\n");
-            printf("CRASH.\n");
-            printf("Silencio total.\n");
-            printf("Ela olha para voce pela primeira vez sem raiva.\n");
-            printf("\"Eu nao queria ficar sozinha de novo...\"\n");
-            printf("Ela desaparece.\n");
-            printf("\n|A - Continuar\n");
+            // Destruir a televisao
+            mostrar_pagina(83);
+            mostrar_pagina(84);
             break;
         case 17:
-            printf("A lamina atravessa o peito dela.\n");
-            printf("Nao sai sangue. So estatica.\n");
-            printf("\"Voce nao faz ideia do que acabou de libertar...\"\n");
-            printf("Ela sorri de verdade pela primeira vez.\n");
-            printf("\"Obrigada.\"\n");
-            printf("\n|A - Continuar\n");
+            // Canivete - sucesso
+            mostrar_pagina(87);
+            mostrar_pagina(88);
             break;
         case 18:
-            printf("Voce hesitou. So por um segundo.\n");
-            printf("Mas foi suficiente.\n");
-            printf("Ela segura o canivete antes do golpe.\n");
-            printf("\"Voce sera um otimo substituto.\"\n");
-            printf("...\n");
-            printf("27 de maio de 2009.\n");
-            printf("Hoje e o enterro do seu tio...\n");
-            printf("\n|A - Continuar\n");
+            // Canivete - falha
+            mostrar_pagina(87);
+            mostrar_pagina(89);
             break;
         case 19:
-            printf("Voce aperta PLAY.\n");
-            printf("Uma voz humana. Assustada. Chorando.\n");
-            printf("\"Se alguem encontrar isso... nao deixa ela pegar voce.\"\n");
-            printf("A entidade recua.\n");
-            printf("...\n");
-            printf("\"Meu nome e Elena.\"\n");
-            printf("Ela lembra.\n");
-            printf("E ao lembrar, desaparece.\n");
-            printf("O apartamento fica em silencio. De verdade.\n");
-            printf("\n|A - Continuar\n");
+            // Gravador - Elena
+            mostrar_pagina(91);
+            mostrar_pagina(92);
+            mostrar_pagina(93);
             break;
         case 20:
-            printf("A macaneta gira.\n");
-            printf("Voce cai no corredor do predio.\n");
-            printf("A porta bate sozinha atras de voce.\n");
-            printf("Voce desce as escadas sem olhar para tras.\n");
-            printf("Nunca mais volta.\n");
-            printf("Mas as vezes, quando tenta dormir...\n");
-            printf("\"Voce quase ficou comigo.\"\n");
-            printf("\n|A - Continuar\n");
+            // Fugir - sucesso
+            mostrar_pagina(95);
+            mostrar_pagina(96);
+            mostrar_pagina(97);
             break;
         case 21:
-            printf("A porta abre.\n");
-            printf("Mas nao existe corredor do outro lado.\n");
-            printf("So o quarto.\n");
-            printf("Voce nunca saiu do apartamento.\n");
-            printf("\"Eu avisei.\"\n");
-            printf("...\n");
-            printf("27 de maio de 2009.\n");
-            printf("\n|A - Continuar\n");
+            // Fugir - falha
+            mostrar_pagina(95);
+            mostrar_pagina(96);
+            mostrar_pagina(98);
             break;
         case 22:
-            printf("2 de junho de 2003 - 6:00\n");
-            printf("Nao acredito que sobrevivi a sexta noite.\n");
-            printf("Eu venci.\n");
-            printf("Finalmente posso voltar para casa.\n");
-            printf("\n|A - Continuar\n");
+            // NOITE 6 - sobreviveu
+            mostrar_pagina(100);
+            mostrar_pagina(101);
             break;
         default:
             printf("...\n");
@@ -257,19 +289,24 @@ void fazer_escolha(PERSONAGEM *personagem, char escolha) {
     switch (personagem->posicao) {
 
         case 1:
-            if (escolha == 'A') {
-                personagem->resistencia += 5;
-                printf("[+5 resistencia]\n");
-                personagem->posicao = 2;
-            }
-            if (escolha == 'B') {
-                personagem->posicao = 2;
-            }
+            // NOITE 1 terminou sem incidentes - avanca para NOITE 2
+            personagem->posicao = 2;
             pausar();
             break;
 
         case 2:
+            // Escolha do gravador (NOITE 2): A = deixar na sala, B = pegar no quarto
             if (escolha == 'A') {
+                personagem->resistencia += 5;
+                printf("[+5 resistencia]\n");
+                mostrar_pagina(18); // OPCAO 2 - Deixar o gravador na sala
+                personagem->posicao = 3;
+            }
+            if (escolha == 'B') {
+                personagem->sanidade  -= 5;
+                personagem->percepcao += 5;
+                printf("[-5 sanidade | +5 percepcao]\n");
+                mostrar_pagina(16); // OPCAO 1 - Pegar o gravador no quarto
                 personagem->posicao = 3;
             }
             pausar();
@@ -279,10 +316,10 @@ void fazer_escolha(PERSONAGEM *personagem, char escolha) {
             if (escolha == 'A') {
                 personagem->coragem     -= 5;
                 personagem->resistencia += 10;
-                printf("Voce coloca o travesseiro na cabeca e tenta ignorar o barulho...\n");
-                printf("Depois de alguns minutos voce consegue voltar a dormir.\n");
-                printf("Bons sonhos...\n");
-                printf("[-5 coragem | +10 resistencia]\n");
+                // Secao 23: OPCAO 1 - Ignorar o barulho
+                mostrar_pagina(23);
+                // Secao 24: manha seguinte (xicara no armario)
+                mostrar_pagina(24);
                 personagem->posicao = 6;
             }
             if (escolha == 'B') {
@@ -298,20 +335,19 @@ void fazer_escolha(PERSONAGEM *personagem, char escolha) {
                 personagem->posicao = 5;
             }
             if (escolha == 'B') {
-                printf("Voce decide nao usar o gravador e volta para o quarto.\n");
-                printf("Esse apartamento fica mais estranho a cada dia...\n");
+                // Secao 32: OPCAO 2.2 - Nao usar o gravador
+                mostrar_pagina(32);
                 personagem->posicao = 6;
             }
             pausar();
             break;
 
         case 5:
-            if (escolha == 'A') {
-                personagem->sanidade  -= 10;
-                personagem->percepcao += 5;
-                printf("[+5 percepcao | -10 sanidade]\n");
-                personagem->posicao = 6;
-            }
+            // Auto-avanca: resultado de usar o gravador na cozinha
+            personagem->sanidade  -= 10;
+            personagem->percepcao += 5;
+            printf("[-10 sanidade | +5 percepcao]\n");
+            personagem->posicao = 6;
             pausar();
             break;
 
@@ -319,8 +355,8 @@ void fazer_escolha(PERSONAGEM *personagem, char escolha) {
             if (escolha == 'A') {
                 personagem->coragem     -= 5;
                 personagem->resistencia += 10;
-                printf("Voce decide ignorar o piso...\n");
-                printf("[-5 coragem | +10 resistencia]\n");
+                // Secao 38: OPCAO 1 - Evitar o piso
+                mostrar_pagina(38);
                 personagem->posicao = 8;
             }
             if (escolha == 'B') {
@@ -330,18 +366,17 @@ void fazer_escolha(PERSONAGEM *personagem, char escolha) {
             break;
 
         case 7:
-            if (escolha == 'A') {
-                personagem->sanidade  -= 20;
-                personagem->coragem   +=  5;
-                personagem->percepcao += 15;
-                printf("[-20 sanidade | +5 coragem | +15 percepcao]\n");
-                if (ja_tem(personagem, "Canivete")) {
-                    ITEM canivete;
-                    gerar_item(&canivete, "Canivete", 5, 0, personagem);
-                    printf("Dentro da caixa havia tambem um canivete.\n");
-                }
-                personagem->posicao = 8;
+            // Auto-avanca apos investigacao do piso (conteudo ja mostrado em atual)
+            personagem->sanidade  -= 20;
+            personagem->coragem   +=  5;
+            personagem->percepcao += 15;
+            printf("[-20 sanidade | +5 coragem | +15 percepcao]\n");
+            if (ja_tem(personagem, "Canivete")) {
+                ITEM canivete;
+                gerar_item(&canivete, "Canivete", 5, 0, personagem);
+                printf("[Voce encontrou o Canivete!]\n");
             }
+            personagem->posicao = 8;
             pausar();
             break;
 
@@ -351,20 +386,22 @@ void fazer_escolha(PERSONAGEM *personagem, char escolha) {
                     ITEM canivete;
                     gerar_item(&canivete, "Canivete", 5, 0, personagem);
                 }
-                printf("Suas maos tremem enquanto segura o canivete.\n");
-                printf("\"Ah... Entao voce quer brincar disso?\"\n");
+                // Secao 51: OPCAO 1 - Canivete
+                mostrar_pagina(51);
                 personagem->posicao = 9;
             }
             if (escolha == 'B') {
                 personagem->coragem  += 5;
                 personagem->sanidade -= 10;
-                printf("[-10 sanidade | +5 coragem]\n");
+                // Secao 53: OPCAO 2 - Correr ate a sala
+                mostrar_pagina(53);
                 personagem->posicao = 10;
             }
             if (escolha == 'C') {
                 personagem->resistencia += 10;
                 personagem->coragem     -= 10;
-                printf("[+10 resistencia | -10 coragem]\n");
+                // Secao 55: OPCAO 3 - Banheiro
+                mostrar_pagina(55);
                 personagem->posicao = 11;
             }
             pausar();
@@ -373,21 +410,21 @@ void fazer_escolha(PERSONAGEM *personagem, char escolha) {
         case 9:
             if (personagem->resistencia >= 30) {
                 personagem->sanidade -= 5;
-                printf("Voce protege o rosto a tempo dos estilhacoes.\n");
-                printf("[-5 sanidade]\n");
+                // Secao 72: Se voce acerta
+                mostrar_pagina(72);
             } else {
                 personagem->sanidade -= 15;
-                printf("Os cacos de vidro atingem voce.\n");
-                printf("[-15 sanidade]\n");
+                // Secao 74: Se voce erra
+                mostrar_pagina(74);
             }
             personagem->posicao = 12;
             pausar();
             break;
 
         case 10:
-            printf("Ela surge atras de voce.\n");
+            // Secao 57: FASE 2 - transicao apos correr
+            mostrar_pagina(57);
             personagem->sanidade -= 10;
-            printf("[-10 sanidade]\n");
             personagem->posicao = 12;
             pausar();
             break;
@@ -401,12 +438,14 @@ void fazer_escolha(PERSONAGEM *personagem, char escolha) {
             if (escolha == 'A') {
                 personagem->percepcao += 15;
                 personagem->sanidade  -= 10;
-                printf("[+15 percepcao | -10 sanidade]\n");
+                // Secao 63: OPCAO 1 - Ouvir a fita
+                mostrar_pagina(63);
                 personagem->posicao = 13;
             }
             if (escolha == 'B') {
                 personagem->percepcao -= 5;
-                printf("[-5 percepcao]\n");
+                // Secao 66: OPCAO 2 - Desligar o gravador
+                mostrar_pagina(66);
                 personagem->posicao = 14;
             }
             pausar();
@@ -427,9 +466,9 @@ void fazer_escolha(PERSONAGEM *personagem, char escolha) {
                 if (personagem->coragem >= 20) {
                     personagem->posicao = 16;
                 } else {
+                    // Nao tem coragem/percepcao suficiente - FASE 3 cacada
                     personagem->sanidade -= 10;
-                    printf("Suas maos tremem demais. Voce nao consegue agir.\n");
-                    printf("[-10 sanidade]\n");
+                    mostrar_pagina(76);
                 }
             }
             if (escolha == 'B') {
@@ -440,7 +479,8 @@ void fazer_escolha(PERSONAGEM *personagem, char escolha) {
                     else
                         personagem->posicao = 18;
                 } else {
-                    printf("Voce nao tem coragem suficiente ou nao tem o canivete.\n");
+                    // Sem canivete ou coragem insuficiente
+                    mostrar_pagina(76);
                     personagem->sanidade -= 10;
                 }
             }
@@ -448,7 +488,8 @@ void fazer_escolha(PERSONAGEM *personagem, char escolha) {
                 if (personagem->percepcao >= 25) {
                     personagem->posicao = 19;
                 } else {
-                    printf("Sua percepcao nao e suficiente para encontrar o gravador a tempo.\n");
+                    // Percepcao insuficiente
+                    mostrar_pagina(76);
                     personagem->sanidade -= 10;
                 }
             }
@@ -463,48 +504,39 @@ void fazer_escolha(PERSONAGEM *personagem, char escolha) {
             break;
 
         case 16:
-            if (escolha == 'A') {
-                tela_final(personagem, 2);
-            }
-            pausar();
+            // Auto: destruiu a TV, vitoria
+            mostrar_pagina(85);
+            tela_final(personagem, 2);
             break;
 
         case 17:
-            if (escolha == 'A') {
-                tela_final(personagem, 2);
-            }
-            pausar();
+            // Auto: canivete acertou, vitoria
+            tela_final(personagem, 2);
             break;
 
         case 18:
+            // Auto: canivete falhou, derrota
             tela_final(personagem, 1);
-            pausar();
             break;
 
         case 19:
-            if (escolha == 'A') {
-                tela_final(personagem, 3);
-            }
-            pausar();
+            // Auto: usou gravador (Elena), vitoria verdadeira
+            tela_final(personagem, 3);
             break;
 
         case 20:
-            if (escolha == 'A') {
-                tela_final(personagem, 2);
-            }
-            pausar();
+            // Auto: fugiu com sucesso, vitoria
+            tela_final(personagem, 2);
             break;
 
         case 21:
+            // Auto: tentou fugir e falhou, derrota
             tela_final(personagem, 1);
-            pausar();
             break;
 
         case 22:
-            if (escolha == 'A') {
-                tela_final(personagem, 2);
-            }
-            pausar();
+            // Auto: sobreviveu as 6 noites, vitoria
+            tela_final(personagem, 2);
             break;
 
         default:
@@ -513,7 +545,7 @@ void fazer_escolha(PERSONAGEM *personagem, char escolha) {
     }
 }
 
-//tela final do jogo
+// tela final do jogo
 void tela_final(PERSONAGEM *personagem, int tipo_final) {
     limpar_tela();
     printf("========== FIM DE JOGO ==========\n\n");
@@ -525,43 +557,25 @@ void tela_final(PERSONAGEM *personagem, int tipo_final) {
 
     switch (tipo_final) {
         case 0:
-            printf("Como chegou a esse ponto?\n");
-            printf("Voce enlouqueceu...\n");
-            printf("Depois da denuncia de alguns vizinhos,\n");
-            printf("a policia te encontrou sentado no canto do quarto,\n");
-            printf("rabiscando as paredes e falando sozinho...\n");
-            printf("A heranca foi para o Estado e voce para o manicomio.\n");
+            // Secao 105: FINAL 0 - Heranca pro Estado
+            mostrar_pagina(105);
             break;
         case 1:
-            printf("Voce hesitou. So por um segundo.\n");
-            printf("Mas foi suficiente.\n");
-            printf("\"Voce sera um otimo substituto.\"\n");
-            printf("...\n");
-            printf("27 de maio de 2009.\n");
-            printf("Hoje e o enterro do seu tio...\n");
-            printf("(A narracao continua. Mas agora a voz e a sua.)\n");
+            // Secao 107: FINAL 1 - Nao foi forte o suficiente
+            mostrar_pagina(107);
             break;
         case 2:
-            printf("Uau, parece que voce completou os 6 dias.\n");
-            printf("Os 6 milhoes de dolares cairam na sua conta no dia seguinte.\n");
-            printf("O que aconteceu naquele apartamento ficara com voce para sempre.\n");
-            printf("Talvez voce precise de terapia...\n");
-            printf("Mas o que isso importa agora? Voce venceu!\n");
+            // Secao 109: FINAL 2 - Voce venceu
+            mostrar_pagina(109);
             printf("Parabens, %s.\n", personagem->nome);
             break;
         case 3:
-            printf("Final Verdadeiro.\n\n");
-            printf("\"Meu nome e Elena.\"\n");
-            printf("Ela lembrou. E ao lembrar, desapareceu.\n");
-            printf("O apartamento ficou em silencio — de verdade.\n");
-            printf("Voce liberou ela.\n");
-            printf("E junto com ela, liberou seu tio tambem.\n");
-            printf("Os 6 milhoes de dolares cairam na sua conta.\n");
-            printf("Mas dessa vez... parece que voce merece de verdade.\n");
+            // Secao 93: FINAL 3 - Final verdadeiro (Elena)
+            mostrar_pagina(93);
             break;
     }
 
-    printf("\n\n|1 - Voltar no ultimo save\n|2 - Fechar o jogo\n");
+    printf("\n1 - Jogar novamente\n2 - Sair\n> ");
     int opcao;
     scanf(" %d", &opcao);
     if (opcao == 1)
