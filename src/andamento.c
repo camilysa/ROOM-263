@@ -213,16 +213,16 @@ void fazer_escolha(PERSONAGEM *personagem, char escolha) {
 
         case 2:
             if (escolha == 'A') {
-                personagem->resistencia += 5;
-                printf("[+5 resistencia]\n");
-                mostrar_pagina(18);
-                personagem->posicao = 3;
-            }
-            if (escolha == 'B') {
                 personagem->sanidade  -= 5;
                 personagem->percepcao += 5;
                 printf("[-5 sanidade | +5 percepcao]\n");
                 mostrar_pagina(16);
+                personagem->posicao = 3;
+            }
+            if (escolha == 'B') {
+                personagem->resistencia += 5;
+                printf("[+5 resistencia]\n");
+                mostrar_pagina(18);
                 personagem->posicao = 3;
             }
             pausar();

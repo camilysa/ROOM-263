@@ -74,7 +74,7 @@ int main(){
                 rodando = 0;
                 break;
             default:
-                printf("Use A/B/C/D ou 1/2/3/4 para escolher.\n");
+                printf("Use A/B/C para escolher.\n");
                 pausar();
                 break;
         }
@@ -102,7 +102,7 @@ void menu_principal(PERSONAGEM **novo_personagem){
         limpar_tela();
         switch (escolha){
             case 1:
-                printf("**  27 de maio de 2003.");
+                printf(" 27 de maio de 2003.");
                 printf("\n  Hoje e o enterro do seu tio...");
                 printf("\n  Voce era o unico parente que ele tinha. Para sua surpresa, ele deixou uma heranca: 6 milhoes de dolares.");
                 printf("\n  Mas ha uma condicao: voce precisa ficar 6 dias no apartamento que ele deixou.");
@@ -200,5 +200,5 @@ PERSONAGEM *criarPersonagem(){
 }
 
 void imprimir_menu(){
-    printf("\n[A/B/C/D ou 1/2/3/4] Escolha  [E] Inventario  [S] Status  [P] Salvar  [I] Menu  [Q] Sair\n> ");
+    printf("\n[A/B/C] Escolha  [E] Inventario  [S] Status  [P] Salvar  [I] Menu  [Q] Sair\n> ");
 }

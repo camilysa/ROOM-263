@@ -190,11 +190,10 @@ INIMIGO gerar_mob(int tipo) {
             mob.id      = 5;
             mob.HP      = 80;
             mob.ATK     = 20;
-            mob.DEF     = 10;
+            mob.DEF     = 10; 
             mob.SPD     = 10;
-            mob.dinheiro = 15;
             mob.pontos  = 10;
-            break;
+            break; //caracteristicas da entidade
 
         default:
             printf("Essa entidade nao existe.\n");
